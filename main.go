@@ -7,6 +7,7 @@ import (
 	//"log"
 	"os"
 	"strings"
+	"regexp"
 )
 
 func main() {
@@ -34,17 +35,31 @@ func formatiere(c *cli.Context) error {
 	rawSql = strings.Trim(rawSql, " ")
 	if strings.HasPrefix(rawSql, "insert") {
 		formatiereInsert(rawSql)	
+	} else {
+		formatiereInsert(rawSql)	
 	}
 	return nil
 }
 
-func formatiereInsert(sql s) {
-	rawSqlArr := strings.Split(sql, ",")
+func formatiereInsert(sql string) {
+	checkValidInsertStmt(sql)
+
+	/*rawSqlArr := strings.Split(sql, ",")
 	for i := 0; i < len(rawSqlArr); i++ {
 		a := strings.Trim(rawSqlArr[i], " ")
 		fmt.Printf("%d: %s\n", i, a)
 		if strings.Compare(a, "(") == 0 {
-			fmt.Println("Found (")
+			fmt.Println("Found (")			
 		}
+	}*/
+}
+
+func checkValidInsertStmt(sql string) {
+	var pattern = regexp.MustCompile(`^insert|INSERT\sinto|INTO\s\w+.*`)
+	if pattern.MatchString(sql) == true {
+		fmt.Println("Valid insert statement!")
+	} else {
+		fmt.Println("Not a valid insert statement!")
 	}
+	fmt.Println(sql)
 }
