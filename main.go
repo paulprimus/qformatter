@@ -1,13 +1,19 @@
 package main
 
 import (
-	//"errors"
 	"fmt"
 	"github.com/urfave/cli"
-	//"log"
 	"os"
-	"strings"
 	"regexp"
+	"strings"
+)
+
+type QueryType int
+
+const (
+	SHORT_INSERT QueryType = iota
+	LONG_INSERT
+	INVALID_QUERY
 )
 
 func main() {
@@ -34,32 +40,47 @@ func formatiere(c *cli.Context) error {
 	rawSql := c.Args().First()
 	rawSql = strings.Trim(rawSql, " ")
 	if strings.HasPrefix(rawSql, "insert") {
-		formatiereInsert(rawSql)	
+		formatiereInsert(rawSql)
 	} else {
-		formatiereInsert(rawSql)	
+		formatiereInsert(rawSql)
 	}
 	return nil
 }
 
 func formatiereInsert(sql string) {
-	checkValidInsertStmt(sql)
+	qt := checkValidInsertStmt(sql)
 
-	/*rawSqlArr := strings.Split(sql, ",")
-	for i := 0; i < len(rawSqlArr); i++ {
-		a := strings.Trim(rawSqlArr[i], " ")
-		fmt.Printf("%d: %s\n", i, a)
-		if strings.Compare(a, "(") == 0 {
-			fmt.Println("Found (")			
-		}
-	}*/
-}
-
-func checkValidInsertStmt(sql string) {
-	var pattern = regexp.MustCompile(`^insert|INSERT\sinto|INTO\s\w+.*`)
-	if pattern.MatchString(sql) == true {
-		fmt.Println("Valid insert statement!")
-	} else {
+	switch qt {
+	case SHORT_INSERT:
+		fmt.Println("Valid short insert statement!")
+		sliceShortInsertStmt(sql)
+	case LONG_INSERT:
+		fmt.Println("Valid long insert statement!")
+	case INVALID_QUERY:
 		fmt.Println("Not a valid insert statement!")
 	}
-	fmt.Println(sql)
+}
+
+func checkValidInsertStmt(sql string) QueryType {
+	var patternShort = regexp.MustCompile(`(?i)^insert\s*into\s*\w+\s*values\s*\(.+\);?$`)
+	var patternLong = regexp.MustCompile(`(?i)^insert\s*into\s*\w+\s*\(.+\)\s*values\s*\(.*\);?$`)
+	if patternShort.MatchString(sql) == true {
+		return SHORT_INSERT
+	} else if patternLong.MatchString(sql) == true {
+		return LONG_INSERT
+	} else {
+		return INVALID_QUERY
+	}
+}
+
+func sliceShortInsertStmt(sql string) {
+	insertStmt := &Statement{queryType: QueryType.SHORT_INSERT, tableName: "testTable", columns: []string{"spalte1,", "spalte2"}, []string{"wert1", "wert2"}}
+	fmt.Println(insertStmt)
+}
+
+type Statement struct {
+	queryType QueryType
+	tableName string
+	columns   []string
+	values    []string
 }
