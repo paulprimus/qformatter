@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"text/template"
 )
 
 type QueryType int
@@ -19,7 +20,6 @@ const (
 func main() {
 	app := cli.NewApp()
 	app.Name = "qformattter"
-
 	app.Commands = []cli.Command{
 		{
 			Name:      "fmt",
@@ -31,6 +31,16 @@ func main() {
 
 	app.Usage = "SQLs leserlich formtieren!"
 	app.Run(os.Args)
+}
+
+const t_short = `insert into {{.TableName}}` + "\n" +
+	`values ({{$n := len .Values}}{{range $i, $v:=.Values}}
+		{{- $v}}{{if ne (last $i) $n -}},{{- end}}{{end}});`
+
+var fns = template.FuncMap{
+	"last": func(x int) int {
+		return x + 1
+	},
 }
 
 func formatiere(c *cli.Context) error {
@@ -49,11 +59,12 @@ func formatiere(c *cli.Context) error {
 
 func formatiereInsert(sql string) {
 	qt := checkValidInsertStmt(sql)
-
+	var stmt *Statement
 	switch qt {
 	case SHORT_INSERT:
 		fmt.Println("Valid short insert statement!")
-		sliceShortInsertStmt(sql)
+		stmt = sliceShortInsertStmt(sql)
+		printStatment(stmt)
 	case LONG_INSERT:
 		fmt.Println("Valid long insert statement!")
 	case INVALID_QUERY:
@@ -73,14 +84,35 @@ func checkValidInsertStmt(sql string) QueryType {
 	}
 }
 
-func sliceShortInsertStmt(sql string) {
-	insertStmt := &Statement{queryType: QueryType.SHORT_INSERT, tableName: "testTable", columns: []string{"spalte1,", "spalte2"}, []string{"wert1", "wert2"}}
-	fmt.Println(insertStmt)
+func sliceShortInsertStmt(sql string) *Statement {
+
+	reTable := regexp.MustCompile("(?i)^insert\\s*into\\s*(\\w+)\\s*values\\s*\\(.+\\);?$")
+	arr := reTable.FindStringSubmatch(sql)
+	tableName := arr[1]
+
+	re := regexp.MustCompile(`\(.*\)`)
+	valueStr := strings.TrimFunc(re.FindString(sql), trimBrackets)
+	values := strings.Split(valueStr, ",")
+	p := &Statement{queryType: SHORT_INSERT, TableName: tableName, columns: nil, Values: values}
+	return p
+}
+
+func printStatment(stmt *Statement) {
+
+	t := template.Must(template.New("insertShort").Funcs(fns).Parse(t_short))
+	err := t.Execute(os.Stdout, *stmt)
+	if err != nil {
+		fmt.Println("Error while executing template:", err)
+	}
+}
+
+func trimBrackets(r rune) bool {
+	return r == ')' || r == '('
 }
 
 type Statement struct {
 	queryType QueryType
-	tableName string
+	TableName string
 	columns   []string
-	values    []string
+	Values    []string
 }
